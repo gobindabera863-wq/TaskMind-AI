@@ -1,0 +1,200 @@
+import React, { useState, useEffect } from 'react';
+import Navbar from '../components/Navbar';
+import Sidebar from '../components/Sidebar';
+import StatsCard from '../components/StatsCard';
+import TaskForm from '../components/TaskForm';
+import SearchBar from '../components/SearchBar';
+import FilterBar from '../components/FilterBar';
+import TaskList from '../components/TaskList';
+import EditTaskModal from '../components/EditTaskModal';
+import AIChat from '../components/AIChat';
+import { useAuth } from '../hooks/useAuth';
+import * as taskService from '../services/taskService';
+
+const Dashboard = () => {
+  const { user } = useAuth();
+  const [tasks, setTasks] = useState([]);
+  const [stats, setStats] = useState({
+    total: 0,
+    completed: 0,
+    pending: 0,
+    inProgress: 0,
+    overdue: 0,
+    highPriority: 0,
+    completionRate: 0
+  });
+
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [currentCategory, setCurrentCategory] = useState('all');
+  const [sortOption, setSortOption] = useState('newest');
+
+  // Modals state
+  const [editingTask, setEditingTask] = useState(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      const [fetchedTasks, fetchedStats] = await Promise.all([
+        taskService.getTasks(),
+        taskService.getTaskStats()
+      ]);
+      setTasks(fetchedTasks);
+      setStats(fetchedStats);
+    } catch (err) {
+      console.error('Error fetching tasks', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const handleAddTask = async (taskData) => {
+    try {
+      await taskService.createTask(taskData);
+      loadDashboardData();
+    } catch (err) {
+      console.error('Error adding task', err);
+    }
+  };
+
+  const handleToggleComplete = async (taskId) => {
+    try {
+      await taskService.toggleComplete(taskId);
+      loadDashboardData();
+    } catch (err) {
+      console.error('Error toggling complete', err);
+    }
+  };
+
+  const handleDeleteTask = async (taskId) => {
+    try {
+      await taskService.deleteTask(taskId);
+      loadDashboardData();
+    } catch (err) {
+      console.error('Error deleting task', err);
+    }
+  };
+
+  const handleOpenEdit = (task) => {
+    setEditingTask(task);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async (taskId, updatedData) => {
+    try {
+      await taskService.updateTask(taskId, updatedData);
+      setIsEditModalOpen(false);
+      loadDashboardData();
+    } catch (err) {
+      console.error('Error updating task', err);
+    }
+  };
+
+  // Filter & Sort Logic
+  const filteredTasks = tasks.filter((t) => {
+    if (filterStatus !== 'all' && t.status !== filterStatus) return false;
+    if (currentCategory !== 'all' && t.category !== currentCategory) return false;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const matchTitle = t.title.toLowerCase().includes(q);
+      const matchDesc = t.description && t.description.toLowerCase().includes(q);
+      const matchCat = t.category && t.category.toLowerCase().includes(q);
+      if (!matchTitle && !matchDesc && !matchCat) return false;
+    }
+    return true;
+  }).sort((a, b) => {
+    if (sortOption === 'newest') return new Date(b.createdAt) - new Date(a.createdAt);
+    if (sortOption === 'oldest') return new Date(a.createdAt) - new Date(b.createdAt);
+    if (sortOption === 'dueDate') {
+      if (!a.dueDate) return 1;
+      if (!b.dueDate) return -1;
+      return new Date(a.dueDate) - new Date(b.dueDate);
+    }
+    if (sortOption === 'priority') {
+      const map = { urgent: 4, high: 3, medium: 2, low: 1 };
+      return map[b.priority] - map[a.priority];
+    }
+    return 0;
+  });
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col font-sans">
+      <Navbar onOpenAiChat={() => setIsAiChatOpen(true)} />
+
+      <div className="max-w-7xl w-full mx-auto px-6 py-6 flex-1 flex gap-6">
+        {/* Sidebar */}
+        <Sidebar
+          currentCategory={currentCategory}
+          onSelectCategory={(cat) => setCurrentCategory(cat)}
+        />
+
+        {/* Main Workspace */}
+        <main className="flex-1 flex flex-col gap-6">
+          {/* Welcome Banner */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-extrabold tracking-tight">
+                Welcome back, {user?.name || 'Developer'}! 👋
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Here is your AI productivity overview for today.
+              </p>
+            </div>
+          </div>
+
+          {/* Stats Bar */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <StatsCard title="Total Tasks" value={stats.total} icon="📋" color="indigo" />
+            <StatsCard title="Completed" value={stats.completed} icon="🎉" subtext={`${stats.completionRate}% rate`} color="emerald" />
+            <StatsCard title="Pending" value={stats.pending} icon="📌" color="amber" />
+            <StatsCard title="Overdue" value={stats.overdue} icon="⚠️" color="red" />
+          </div>
+
+          {/* Smart Task Input Form */}
+          <TaskForm onTaskAdded={handleAddTask} />
+
+          {/* Controls Bar */}
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <SearchBar searchQuery={searchQuery} onSearchChange={setSearchQuery} />
+            <FilterBar
+              currentFilter={filterStatus}
+              onSelectFilter={setFilterStatus}
+              currentSort={sortOption}
+              onSelectSort={setSortOption}
+            />
+          </div>
+
+          {/* Task Grid */}
+          <TaskList
+            tasks={filteredTasks}
+            loading={loading}
+            onToggleComplete={handleToggleComplete}
+            onEdit={handleOpenEdit}
+            onDelete={handleDeleteTask}
+            onAiBreakdown={() => setIsAiChatOpen(true)}
+          />
+        </main>
+      </div>
+
+      {/* Edit Modal */}
+      <EditTaskModal
+        task={editingTask}
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onSave={handleSaveEdit}
+      />
+
+      {/* AI Assistant Modal */}
+      <AIChat isOpen={isAiChatOpen} onClose={() => setIsAiChatOpen(false)} />
+    </div>
+  );
+};
+
+export default Dashboard;
