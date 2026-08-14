@@ -99,7 +99,16 @@ const Dashboard = () => {
 
   // Filter & Sort Logic
   const filteredTasks = tasks.filter((t) => {
-    if (filterStatus !== 'all' && t.status !== filterStatus) return false;
+    if (filterStatus !== 'all') {
+      if (filterStatus === 'overdue') {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const taskDateStr = t.dueDate ? new Date(t.dueDate).toISOString().split('T')[0] : null;
+        const isOverdue = taskDateStr && taskDateStr < todayStr && t.status !== 'completed';
+        if (!isOverdue) return false;
+      } else {
+        if (t.status !== filterStatus) return false;
+      }
+    }
     if (currentCategory !== 'all') {
       if (!t.category) return false;
       if (t.category.toLowerCase().trim() !== currentCategory.toLowerCase().trim()) return false;
@@ -154,12 +163,41 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Stats Bar */}
+          {/* Interactive Stats Bar */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatsCard title="Total Tasks" value={stats.total} icon="📋" color="indigo" />
-            <StatsCard title="Completed" value={stats.completed} icon="🎉" subtext={`${stats.completionRate}% rate`} color="emerald" />
-            <StatsCard title="Pending" value={stats.pending} icon="📌" color="amber" />
-            <StatsCard title="Overdue" value={stats.overdue} icon="⚠️" color="red" />
+            <StatsCard
+              title="Total Tasks"
+              value={stats.total}
+              icon="📋"
+              color="indigo"
+              onClick={() => setFilterStatus('all')}
+              isActive={filterStatus === 'all'}
+            />
+            <StatsCard
+              title="Completed"
+              value={stats.completed}
+              icon="🎉"
+              subtext={`${stats.completionRate}% rate`}
+              color="emerald"
+              onClick={() => setFilterStatus('completed')}
+              isActive={filterStatus === 'completed'}
+            />
+            <StatsCard
+              title="Pending"
+              value={stats.pending}
+              icon="📌"
+              color="amber"
+              onClick={() => setFilterStatus('pending')}
+              isActive={filterStatus === 'pending'}
+            />
+            <StatsCard
+              title="Overdue"
+              value={stats.overdue}
+              icon="⚠️"
+              color="red"
+              onClick={() => setFilterStatus('overdue')}
+              isActive={filterStatus === 'overdue'}
+            />
           </div>
 
           {/* Smart Task Input Form */}

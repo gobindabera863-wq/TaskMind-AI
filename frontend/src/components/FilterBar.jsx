@@ -5,8 +5,10 @@ const FilterBar = ({ currentFilter, onSelectFilter, currentSort, onSelectSort })
     { id: 'all', label: 'All' },
     { id: 'pending', label: 'Pending' },
     { id: 'in-progress', label: 'In Progress' },
-    { id: 'completed', label: 'Completed' }
+    { id: 'completed', label: 'Completed' },
+    { id: 'overdue', label: 'Overdue ⚠️' }
   ];
+
 
   return (
     <div className="flex items-center justify-between gap-4 flex-wrap bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-2xl p-3 shadow-xl">
