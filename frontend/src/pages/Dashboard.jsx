@@ -100,7 +100,10 @@ const Dashboard = () => {
   // Filter & Sort Logic
   const filteredTasks = tasks.filter((t) => {
     if (filterStatus !== 'all' && t.status !== filterStatus) return false;
-    if (currentCategory !== 'all' && t.category !== currentCategory) return false;
+    if (currentCategory !== 'all') {
+      if (!t.category) return false;
+      if (t.category.toLowerCase().trim() !== currentCategory.toLowerCase().trim()) return false;
+    }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       const matchTitle = t.title.toLowerCase().includes(q);
@@ -133,7 +136,9 @@ const Dashboard = () => {
         <Sidebar
           currentCategory={currentCategory}
           onSelectCategory={(cat) => setCurrentCategory(cat)}
+          tasks={tasks}
         />
+
 
         {/* Main Workspace */}
         <main className="flex-1 flex flex-col gap-6">

@@ -54,8 +54,16 @@ const getTasks = async (req, res) => {
     // Apply optional filter parameters
     const { status, category, priority, search } = req.query;
     if (status) userTasks = userTasks.filter(t => t.status === status);
-    if (category && category !== 'all') userTasks = userTasks.filter(t => t.category === category);
-    if (priority && priority !== 'all') userTasks = userTasks.filter(t => t.priority === priority);
+    if (category && category !== 'all') {
+      userTasks = userTasks.filter(
+        t => t.category && t.category.toLowerCase().trim() === category.toLowerCase().trim()
+      );
+    }
+    if (priority && priority !== 'all') {
+      userTasks = userTasks.filter(
+        t => t.priority && t.priority.toLowerCase().trim() === priority.toLowerCase().trim()
+      );
+    }
     if (search) {
       const q = search.toLowerCase();
       userTasks = userTasks.filter(t => t.title.toLowerCase().includes(q) || t.description.toLowerCase().includes(q));
@@ -68,8 +76,13 @@ const getTasks = async (req, res) => {
   const { status, category, priority, search } = req.query;
 
   if (status) query.status = status;
-  if (category && category !== 'all') query.category = category;
-  if (priority && priority !== 'all') query.priority = priority;
+  if (category && category !== 'all') {
+    query.category = { $regex: new RegExp(`^${category.trim()}$`, 'i') };
+  }
+  if (priority && priority !== 'all') {
+    query.priority = { $regex: new RegExp(`^${priority.trim()}$`, 'i') };
+  }
+
   if (search) {
     query.$or = [
       { title: { $regex: search, $options: 'i' } },
