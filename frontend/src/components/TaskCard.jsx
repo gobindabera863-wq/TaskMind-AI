@@ -114,11 +114,22 @@ const TaskCard = ({ task, onToggleComplete, onEdit, onDelete, onAiBreakdown }) =
         </div>
 
         {task.dueDate && (
-          <div className={`flex items-center gap-1 font-semibold text-[11px] ${overdue ? 'text-red-400 font-bold animate-pulse' : 'text-slate-400'}`}>
+          <div
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all ${
+              overdue
+                ? 'bg-red-500/20 text-red-300 border-red-500/40 animate-pulse'
+                : formatDate(task.dueDate) === 'Today'
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                : formatDate(task.dueDate) === 'Tomorrow'
+                ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
+                : 'bg-slate-800/80 text-slate-300 border-slate-700/80'
+            }`}
+          >
             <Calendar className="w-3.5 h-3.5" />
             <span>{formatDate(task.dueDate)}</span>
           </div>
         )}
+
       </div>
     </div>
   );

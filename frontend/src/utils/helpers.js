@@ -1,7 +1,23 @@
 export const formatDate = (dateString) => {
   if (!dateString) return '';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
+  
+  const todayStr = new Date().toISOString().split('T')[0];
+  const dueStr = new Date(dateString).toISOString().split('T')[0];
+
+  const today = new Date(todayStr);
+  const due = new Date(dueStr);
+  
+  const diffTime = due.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Tomorrow';
+  if (diffDays < 0) {
+    const formatted = due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return `Overdue (${formatted})`;
+  }
+
+  return due.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric'
@@ -10,10 +26,11 @@ export const formatDate = (dateString) => {
 
 export const isOverdue = (dateString, status) => {
   if (!dateString || status === 'completed') return false;
-  const today = new Date().toISOString().split('T')[0];
-  const due = new Date(dateString).toISOString().split('T')[0];
-  return due < today;
+  const todayStr = new Date().toISOString().split('T')[0];
+  const dueStr = new Date(dateString).toISOString().split('T')[0];
+  return dueStr < todayStr;
 };
+
 
 export const getPriorityBadgeClass = (priority) => {
   switch (priority) {
