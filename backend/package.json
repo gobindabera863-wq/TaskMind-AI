@@ -4,10 +4,22 @@
   "description": "TaskMind AI - MERN Stack Backend REST API",
   "main": "server.js",
   "type": "commonjs",
+  "keywords": [
+    "express",
+    "nodejs",
+    "mongodb",
+    "mongoose",
+    "jwt",
+    "bcryptjs",
+    "nodemailer",
+    "openai",
+    "rest-api"
+  ],
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js"
   },
+
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
