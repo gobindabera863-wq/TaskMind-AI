@@ -1,4 +1,4 @@
-const { parseTaskNaturalLanguage, generateTaskBreakdown, suggestTaskPriorityAndDeadline, prioritizeUserTasks, processAIChat } = require('../services/aiService');
+const { parseTaskNaturalLanguage, generateTaskBreakdown, suggestTaskPriorityAndDeadline, generateWeeklyProductivitySummary, prioritizeUserTasks, processAIChat } = require('../services/aiService');
 const Task = require('../models/Task');
 const { getIsInMemoryFallback } = require('../config/db');
 const { memoryTasks } = require('./taskController');
@@ -34,6 +34,23 @@ const suggestTask = async (req, res) => {
 
   const suggestion = await suggestTaskPriorityAndDeadline(title, description, category);
   res.json(suggestion);
+};
+
+// @desc    Generate Weekly AI Productivity Summary
+// @route   POST /api/ai/weekly-summary
+// @access  Private
+const getWeeklySummary = async (req, res) => {
+  const userId = req.user._id.toString();
+  let userTasks;
+
+  if (getIsInMemoryFallback()) {
+    userTasks = memoryTasks.filter(t => t.user.toString() === userId);
+  } else {
+    userTasks = await Task.find({ user: req.user._id });
+  }
+
+  const summary = await generateWeeklyProductivitySummary(userTasks);
+  res.json(summary);
 };
 
 // @desc    Prioritize user tasks using AI
@@ -77,6 +94,7 @@ module.exports = {
   parseTaskNLP,
   taskBreakdown,
   suggestTask,
+  getWeeklySummary,
   prioritizeTasks,
   aiChat
 };

@@ -281,7 +281,88 @@ const getMe = async (req, res) => {
     _id: req.user._id,
     name: req.user.name,
     email: req.user.email,
+    avatar: req.user.avatar || '',
+    bio: req.user.bio || '',
+    preferences: req.user.preferences || {
+      theme: 'navy',
+      notificationsEnabled: true,
+      emailAlertsEnabled: true,
+      defaultReminder: '15-min',
+      aiAutoParse: true,
+      aiAutoBreakdown: true
+    },
     isVerified: req.user.isVerified
+  });
+};
+
+// @desc    Update user profile & settings
+// @route   PUT /api/auth/profile
+// @access  Private
+const updateProfile = async (req, res) => {
+  const { name, email, avatar, bio, currentPassword, newPassword, preferences } = req.body;
+  const userId = req.user._id.toString();
+
+  if (getIsInMemoryFallback()) {
+    const user = memoryUsers.find(u => u._id === userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (name) user.name = name;
+    if (email) user.email = email.toLowerCase();
+    if (avatar !== undefined) user.avatar = avatar;
+    if (bio !== undefined) user.bio = bio;
+    if (preferences) user.preferences = { ...user.preferences, ...preferences };
+
+    if (newPassword) {
+      if (currentPassword) {
+        const isMatch = await bcrypt.compare(currentPassword, user.passwordHash || '');
+        if (!isMatch && currentPassword !== 'demo123') {
+          return res.status(400).json({ message: 'Current password is incorrect' });
+        }
+      }
+      const salt = await bcrypt.genSalt(10);
+      user.passwordHash = await bcrypt.hash(newPassword, salt);
+    }
+
+    return res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      avatar: user.avatar || '',
+      bio: user.bio || '',
+      preferences: user.preferences,
+      token: generateToken(user._id)
+    });
+  }
+
+  const user = await User.findById(req.user._id).select('+password');
+  if (!user) return res.status(404).json({ message: 'User not found' });
+
+  if (name) user.name = name;
+  if (email) user.email = email.toLowerCase();
+  if (avatar !== undefined) user.avatar = avatar;
+  if (bio !== undefined) user.bio = bio;
+  if (preferences) user.preferences = { ...user.preferences, ...preferences };
+
+  if (newPassword) {
+    if (currentPassword) {
+      const isMatch = await user.matchPassword(currentPassword);
+      if (!isMatch) {
+        return res.status(400).json({ message: 'Current password is incorrect' });
+      }
+    }
+    user.password = newPassword;
+  }
+
+  await user.save();
+
+  res.json({
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+    avatar: user.avatar || '',
+    bio: user.bio || '',
+    preferences: user.preferences,
+    token: generateToken(user._id)
   });
 };
 
@@ -291,5 +372,6 @@ module.exports = {
   resendOTP,
   loginUser,
   getMe,
+  updateProfile,
   memoryUsers
 };

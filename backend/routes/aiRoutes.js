@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { parseTaskNLP, taskBreakdown, suggestTask, prioritizeTasks, aiChat } = require('../controllers/aiController');
+const { parseTaskNLP, taskBreakdown, suggestTask, getWeeklySummary, prioritizeTasks, aiChat } = require('../controllers/aiController');
 const { protect } = require('../middleware/authMiddleware');
 
 router.use(protect);
@@ -8,6 +8,7 @@ router.use(protect);
 router.post('/parse-task', parseTaskNLP);
 router.post('/breakdown', taskBreakdown);
 router.post('/suggest', suggestTask);
+router.post('/weekly-summary', getWeeklySummary);
 router.post('/prioritize', prioritizeTasks);
 router.post('/chat', aiChat);
 

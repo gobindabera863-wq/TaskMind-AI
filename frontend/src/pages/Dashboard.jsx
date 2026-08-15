@@ -12,6 +12,7 @@ import { useAuth } from '../hooks/useAuth';
 import * as taskService from '../services/taskService';
 import AiBreakdownModal from '../components/AiBreakdownModal';
 import { getProductivityLabel } from '../utils/helpers';
+import AiWeeklySummaryCard from '../components/AiWeeklySummaryCard';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -262,6 +263,9 @@ const Dashboard = () => {
               color="pink"
             />
           </div>
+
+          {/* AI Weekly Productivity Summary Card */}
+          <AiWeeklySummaryCard tasks={tasks} />
 
           {/* Smart Natural Language Task Input */}
           <TaskForm onTaskAdded={handleAddTask} />

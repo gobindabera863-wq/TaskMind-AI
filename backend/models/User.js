@@ -26,6 +26,22 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true
     },
+    avatar: {
+      type: String,
+      default: ''
+    },
+    bio: {
+      type: String,
+      default: ''
+    },
+    preferences: {
+      theme: { type: String, default: 'navy' },
+      notificationsEnabled: { type: Boolean, default: true },
+      emailAlertsEnabled: { type: Boolean, default: true },
+      defaultReminder: { type: String, default: '15-min' },
+      aiAutoParse: { type: Boolean, default: true },
+      aiAutoBreakdown: { type: Boolean, default: true }
+    },
     otp: {
       type: String,
       default: null

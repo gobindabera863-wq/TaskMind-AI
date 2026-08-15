@@ -373,6 +373,114 @@ const prioritizeUserTasks = async (userTasks) => {
   };
 };
 
+const generateWeeklyProductivitySummary = async (userTasks) => {
+  const now = new Date();
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  const weeklyTasks = userTasks.filter(t => {
+    const d = new Date(t.createdAt || t.updatedAt || t.completedAt);
+    return !isNaN(d.getTime()) && d >= sevenDaysAgo;
+  });
+
+  const targetTasks = weeklyTasks.length > 0 ? weeklyTasks : userTasks;
+
+  const total = targetTasks.length;
+  const completed = targetTasks.filter(t => t.status === 'completed');
+  const completedCount = completed.length;
+  const completionRate = total > 0 ? Math.round((completedCount / total) * 100) : 0;
+
+  // Category counts
+  const categoryCounts = {};
+  targetTasks.forEach(t => {
+    const cat = t.category || 'personal';
+    categoryCounts[cat] = (categoryCounts[cat] || 0) + (t.status === 'completed' ? 1 : 0);
+  });
+
+  let bestCategory = 'personal';
+  let maxCatCount = 0;
+  Object.entries(categoryCounts).forEach(([cat, cnt]) => {
+    if (cnt > maxCatCount) {
+      maxCatCount = cnt;
+      bestCategory = cat;
+    }
+  });
+
+  // Most productive day
+  const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const dayCounts = {};
+  completed.forEach(t => {
+    const d = new Date(t.completedAt || t.updatedAt || t.createdAt);
+    if (!isNaN(d.getTime())) {
+      const dayName = daysOfWeek[d.getDay()];
+      dayCounts[dayName] = (dayCounts[dayName] || 0) + 1;
+    }
+  });
+
+  let mostProductiveDay = 'Monday';
+  let maxDayCount = 0;
+  Object.entries(dayCounts).forEach(([day, cnt]) => {
+    if (cnt > maxDayCount) {
+      maxDayCount = cnt;
+      mostProductiveDay = day;
+    }
+  });
+
+  // Overdue count
+  const todayStr = now.toISOString().split('T')[0];
+  const overdueCount = targetTasks.filter(t => {
+    if (!t.dueDate || t.status === 'completed') return false;
+    try {
+      const d = new Date(t.dueDate);
+      return !isNaN(d.getTime()) && d.toISOString().split('T')[0] < todayStr;
+    } catch (e) {
+      return false;
+    }
+  }).length;
+
+  const promptPayload = `Tasks Total: ${total}, Completed: ${completedCount}, Completion Rate: ${completionRate}%, Best Category: ${bestCategory} (${maxCatCount} completed), Most Productive Day: ${mostProductiveDay}, Overdue Tasks: ${overdueCount}.`;
+
+  const aiResult = await callOpenAI([
+    {
+      role: 'system',
+      content: `Analyze the user's weekly task productivity history and generate an encouraging, highly actionable weekly summary digest. Return ONLY a JSON object with keys:
+"completedText": string (e.g., "You completed ${completedCount} of ${total} tasks this week (${completionRate}% completion rate)."),
+"strongestCategoryText": string (e.g., "Your strongest category was ${bestCategory} with ${maxCatCount} completed tasks."),
+"mostProductiveDayText": string (e.g., "Your most productive day was ${mostProductiveDay}."),
+"weakAreasText": string (short observation about postponed/overdue tasks or low completion rate),
+"recommendationText": string (actionable productivity improvement tip, e.g. "Recommendation: Schedule high-priority tasks earlier in the day.").`
+    },
+    { role: 'user', content: promptPayload }
+  ], { type: 'json_object' });
+
+  if (aiResult) {
+    try {
+      const parsed = JSON.parse(aiResult);
+      if (parsed.completedText) {
+        return {
+          summaryTitle: 'Weekly AI Productivity Digest',
+          completedText: parsed.completedText,
+          strongestCategoryText: parsed.strongestCategoryText,
+          mostProductiveDayText: parsed.mostProductiveDayText,
+          weakAreasText: parsed.weakAreasText || (overdueCount > 0 ? `You had ${overdueCount} overdue task(s) past deadline.` : 'None identified! Smooth completion velocity.'),
+          recommendationText: parsed.recommendationText || 'Recommendation: Block dedicated focus time early in your peak productive hours.'
+        };
+      }
+    } catch (e) {}
+  }
+
+  // Heuristic Fallback
+  return {
+    summaryTitle: 'Weekly AI Productivity Digest',
+    completedText: `You completed ${completedCount} of ${total} tasks this week (${completionRate}% completion rate).`,
+    strongestCategoryText: `Your strongest category was ${bestCategory.toUpperCase()} with ${maxCatCount} completed tasks.`,
+    mostProductiveDayText: `Your most productive day was ${mostProductiveDay}.`,
+    weakAreasText: overdueCount > 0
+      ? `You frequently postponed ${overdueCount} high-priority tasks past their deadline.`
+      : `Maintaining focus on completing remaining pending tasks before adding new ones.`,
+    recommendationText: `Recommendation: Schedule important high-priority tasks earlier in the day during peak focus hours.`
+  };
+};
+
 const processAIChat = async (userMessage, userTasks, userName) => {
   const pendingTasks = userTasks.filter(t => t.status !== 'completed');
   const completedTasks = userTasks.filter(t => t.status === 'completed');
@@ -451,6 +559,7 @@ module.exports = {
   parseTaskNaturalLanguage,
   generateTaskBreakdown,
   suggestTaskPriorityAndDeadline,
+  generateWeeklyProductivitySummary,
   prioritizeUserTasks,
   processAIChat
 };

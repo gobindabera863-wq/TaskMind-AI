@@ -13,6 +13,7 @@ import Tasks from './pages/Tasks';
 import Calendar from './pages/Calendar';
 import Analytics from './pages/Analytics';
 import Profile from './pages/Profile';
+import Settings from './pages/Settings';
 import NotFound from './pages/NotFound';
 
 function App() {
@@ -35,6 +36,7 @@ function App() {
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/settings" element={<Settings />} />
         </Route>
 
         {/* 404 Route */}

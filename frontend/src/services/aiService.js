@@ -15,6 +15,11 @@ export const suggestTaskPriorityAndDeadline = async (taskData) => {
   return response.data;
 };
 
+export const getWeeklySummary = async () => {
+  const response = await api.post('/ai/weekly-summary');
+  return response.data;
+};
+
 export const getTaskPrioritization = async () => {
   const response = await api.post('/ai/prioritize');
   return response.data;

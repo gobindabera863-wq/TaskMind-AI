@@ -37,3 +37,13 @@ export const getMe = async () => {
   const response = await api.get('/auth/me');
   return response.data;
 };
+
+export const updateProfile = async (profileData) => {
+  const response = await api.put('/auth/profile', profileData);
+  if (response.data.token) {
+    localStorage.setItem('taskmind_token', response.data.token);
+    const existing = JSON.parse(localStorage.getItem('taskmind_user') || '{}');
+    localStorage.setItem('taskmind_user', JSON.stringify({ ...existing, ...response.data }));
+  }
+  return response.data;
+};

@@ -7,6 +7,7 @@ import { useAuth } from '../hooks/useAuth';
 import * as taskService from '../services/taskService';
 import { BarChart2, TrendingUp, CheckCircle2, Clock, AlertTriangle, Calendar, Flame, Zap, Award, PieChart, Layers } from 'lucide-react';
 import { isOverdue, getProductivityLabel } from '../utils/helpers';
+import AiWeeklySummaryCard from '../components/AiWeeklySummaryCard';
 
 const Analytics = () => {
   const { user } = useAuth();
@@ -151,6 +152,9 @@ const Analytics = () => {
               </p>
             </div>
           </div>
+
+          {/* AI Weekly Productivity Summary Card */}
+          <AiWeeklySummaryCard tasks={tasks} />
 
           {/* Top 4 Key Metrics Cards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
