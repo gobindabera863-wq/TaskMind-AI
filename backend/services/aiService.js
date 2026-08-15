@@ -44,17 +44,23 @@ const callOpenAI = async (messages, responseFormat = null) => {
 
 const parseTaskNaturalLanguage = async (inputPrompt) => {
   const text = inputPrompt.trim();
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
 
   // Try OpenAI API first for rich parsing
   const aiResult = await callOpenAI([
     {
       role: 'system',
-      content: `Extract task parameters from input text. Return ONLY a JSON object with keys:
-"title" (clean task title),
+      content: `Analyze natural language task input and extract task fields.
+Return ONLY a JSON object with keys:
+"title" (clean main task title),
 "priority" (one of: "urgent", "high", "medium", "low"),
 "category" (one of: "work", "personal", "coding", "health", "finance", "learning"),
-"dueDate" (ISO YYYY-MM-DD or null if not specified).
-Current date is ${new Date().toISOString().split('T')[0]}.`
+"dueDate" (ISO format YYYY-MM-DD or null if not specified),
+"dueTime" (24-hour HH:MM format like "19:00" for 7 PM, or "" if not specified),
+"subtasks" (array of 2 to 5 suggested subtask step titles if the input implies multiple topics, subjects, or steps, or empty array []).
+
+Current date is ${todayStr}.`
     },
     { role: 'user', content: text }
   ], { type: 'json_object' });
@@ -67,7 +73,9 @@ Current date is ${new Date().toISOString().split('T')[0]}.`
           title: parsed.title,
           priority: parsed.priority || 'medium',
           category: parsed.category || 'personal',
-          dueDate: parsed.dueDate || null
+          dueDate: parsed.dueDate || null,
+          dueTime: parsed.dueTime || '',
+          subtasks: Array.isArray(parsed.subtasks) ? parsed.subtasks : []
         };
       }
     } catch (e) {
@@ -79,8 +87,11 @@ Current date is ${new Date().toISOString().split('T')[0]}.`
   let priority = 'medium';
   let category = 'personal';
   let dueDate = null;
+  let dueTime = '';
   let cleanTitle = text;
+  let subtasks = [];
 
+  // Priority Extraction
   if (/urgent|p1|asap|critical/i.test(text)) {
     priority = 'urgent';
     cleanTitle = cleanTitle.replace(/urgent|p1|asap|critical/gi, '');
@@ -92,13 +103,26 @@ Current date is ${new Date().toISOString().split('T')[0]}.`
     cleanTitle = cleanTitle.replace(/low|p4|minor/gi, '');
   }
 
-  if (/code|app|bug|repo|git|api|html|css|react/i.test(text)) category = 'coding';
+  // Category Extraction
+  if (/code|app|mern|react|node|bug|repo|git|api|html|css|database|sql|mongodb/i.test(text)) category = 'coding';
   else if (/gym|health|doctor|workout|run|diet/i.test(text)) category = 'health';
   else if (/email|meeting|client|report|project|slide/i.test(text)) category = 'work';
-  else if (/study|read|course|book|learn/i.test(text)) category = 'learning';
+  else if (/exam|study|read|course|book|learn|dbms|cn|os|computer|science/i.test(text)) category = 'learning';
   else if (/pay|bank|bill|tax|money|budget/i.test(text)) category = 'finance';
 
-  const today = new Date();
+  // Time Extraction (e.g., 7 PM, 7:00 PM, 19:00, 7pm)
+  const timeMatch = text.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
+  if (timeMatch) {
+    let hours = parseInt(timeMatch[1], 10);
+    const minutes = timeMatch[2] || '00';
+    const ampm = timeMatch[3].toLowerCase();
+    if (ampm === 'pm' && hours < 12) hours += 12;
+    if (ampm === 'am' && hours === 12) hours = 0;
+    dueTime = `${String(hours).padStart(2, '0')}:${minutes}`;
+    cleanTitle = cleanTitle.replace(timeMatch[0], '');
+  }
+
+  // Date Extraction
   if (/tomorrow/i.test(text)) {
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
@@ -112,16 +136,45 @@ Current date is ${new Date().toISOString().split('T')[0]}.`
     nextFri.setDate(today.getDate() + ((5 - today.getDay() + 7) % 7 || 7));
     dueDate = nextFri.toISOString().split('T')[0];
     cleanTitle = cleanTitle.replace(/friday/gi, '');
+  } else if (/next week/i.test(text)) {
+    const nextWk = new Date(today);
+    nextWk.setDate(today.getDate() + 7);
+    dueDate = nextWk.toISOString().split('T')[0];
+    cleanTitle = cleanTitle.replace(/next week/gi, '');
   }
 
-  cleanTitle = cleanTitle.replace(/\s+/g, ' ').trim();
+  // Clean trailing punctuation and words
+  cleanTitle = cleanTitle.replace(/at\s*$/i, '').replace(/on\s*$/i, '').replace(/,\s*$/i, '').replace(/\s+/g, ' ').trim();
   if (!cleanTitle) cleanTitle = text;
+
+  // Multiple topics / Exam subject subtask detection
+  if (/exam|finish|study|need to finish/i.test(text)) {
+    const subjects = [];
+    if (/dbms/i.test(text)) subjects.push('Study DBMS');
+    if (/cn|computer networks/i.test(text)) subjects.push('Study Computer Networks');
+    if (/os|operating systems/i.test(text)) subjects.push('Study Operating Systems');
+    if (subjects.length > 0) {
+      subjects.push('Revision & Practice Questions');
+      subtasks = subjects;
+    }
+  }
+
+  if (subtasks.length === 0 && (category === 'coding' || cleanTitle.toLowerCase().includes('project'))) {
+    subtasks = [
+      'Setup backend & database schema',
+      'Build core APIs & authentication',
+      'Design user interface & components',
+      'Test end-to-end features and deploy'
+    ];
+  }
 
   return {
     title: cleanTitle,
     priority,
     category,
-    dueDate
+    dueDate,
+    dueTime,
+    subtasks
   };
 };
 
@@ -130,9 +183,9 @@ const generateTaskBreakdown = async (goalTitle) => {
   const aiResult = await callOpenAI([
     {
       role: 'system',
-      content: 'You are a project planning assistant. Given a project or goal title, break it down into 4 to 6 logical, actionable step-by-step subtasks. Return a JSON object with a key "subtasks" containing an array of strings.'
+      content: 'You are an expert project management AI. Given a task or project title, break it down into 5 to 9 actionable step-by-step subtasks. Return a JSON object with key "subtasks" containing an array of step titles strings.'
     },
-    { role: 'user', content: `Goal: "${goalTitle}"` }
+    { role: 'user', content: `Break down task: "${goalTitle}"` }
   ], { type: 'json_object' });
 
   if (aiResult) {
@@ -146,18 +199,21 @@ const generateTaskBreakdown = async (goalTitle) => {
     }
   }
 
-  // Heuristic Fallback
+  // Smart Heuristic Fallback
   const lower = goalTitle.toLowerCase();
   let subtasks = [];
 
-  if (lower.includes('website') || lower.includes('app') || lower.includes('e-commerce') || lower.includes('mern')) {
+  if (lower.includes('mern') || lower.includes('full stack') || lower.includes('build mern project') || lower.includes('node') || lower.includes('react')) {
     subtasks = [
-      "Design database schema and Mongoose models",
-      "Build REST API authentication & JWT endpoints",
-      "Create React component layout and CSS theme",
-      "Implement CRUD operations & state context",
-      "Integrate AI services & endpoint handlers",
-      "Test end-to-end user workflows and deploy"
+      "Setup project structure & repositories",
+      "Configure backend Express server",
+      "Configure MongoDB connection & schemas",
+      "Create authentication & JWT endpoints",
+      "Create REST API CRUD controllers",
+      "Build React UI components & styles",
+      "Connect frontend and backend services",
+      "Test application end-to-end",
+      "Deploy application to production"
     ];
   } else if (lower.includes('trip') || lower.includes('vacation') || lower.includes('travel')) {
     subtasks = [
@@ -175,9 +231,10 @@ const generateTaskBreakdown = async (goalTitle) => {
     ];
   } else {
     subtasks = [
-      `Define scope & goals for "${goalTitle}"`,
-      `Execute primary development / action phase`,
-      `Review output and perform quality verification`,
+      `Setup project requirements for "${goalTitle}"`,
+      `Define architecture & core step breakdown`,
+      `Execute primary implementation phase`,
+      `Review output & perform testing verification`,
       `Finalize delivery and mark task completed`
     ];
   }

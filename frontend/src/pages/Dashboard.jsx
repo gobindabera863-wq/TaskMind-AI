@@ -10,6 +10,7 @@ import EditTaskModal from '../components/EditTaskModal';
 import AIChat from '../components/AIChat';
 import { useAuth } from '../hooks/useAuth';
 import * as taskService from '../services/taskService';
+import AiBreakdownModal from '../components/AiBreakdownModal';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -37,6 +38,7 @@ const Dashboard = () => {
   const [editingTask, setEditingTask] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAiChatOpen, setIsAiChatOpen] = useState(false);
+  const [aiBreakdownTask, setAiBreakdownTask] = useState(null);
 
   const loadDashboardData = async () => {
     try {
@@ -283,7 +285,7 @@ const Dashboard = () => {
             onToggleComplete={handleToggleComplete}
             onEdit={handleOpenEdit}
             onDelete={handleDeleteTask}
-            onAiBreakdown={() => setIsAiChatOpen(true)}
+            onAiBreakdown={(task) => setAiBreakdownTask(task)}
             onTaskUpdated={loadDashboardData}
           />
         </main>
@@ -303,6 +305,16 @@ const Dashboard = () => {
         onClose={() => setIsAiChatOpen(false)}
         onAddSubtasks={handleAddSubtasksFromAi}
       />
+
+      {/* AI Task Breakdown Confirmation Modal */}
+      {aiBreakdownTask && (
+        <AiBreakdownModal
+          task={aiBreakdownTask}
+          isOpen={!!aiBreakdownTask}
+          onClose={() => setAiBreakdownTask(null)}
+          onTaskUpdated={loadDashboardData}
+        />
+      )}
     </div>
   );
 };

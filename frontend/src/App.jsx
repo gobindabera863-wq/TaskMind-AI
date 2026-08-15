@@ -9,6 +9,7 @@ import Register from './pages/Register';
 import VerifyOTP from './pages/VerifyOTP';
 import Dashboard from './pages/Dashboard';
 import Tasks from './pages/Tasks';
+import Calendar from './pages/Calendar';
 import Profile from './pages/Profile';
 import NotFound from './pages/NotFound';
 
@@ -26,6 +27,7 @@ function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/tasks" element={<Tasks />} />
+          <Route path="/calendar" element={<Calendar />} />
           <Route path="/profile" element={<Profile />} />
         </Route>
 
