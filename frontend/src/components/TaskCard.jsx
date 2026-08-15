@@ -2,9 +2,12 @@ import React, { useState } from 'react';
 import { Check, Trash2, Edit3, Sparkles, Calendar, Clock, Eye, AlertCircle } from 'lucide-react';
 import { formatDate, isOverdue, getPriorityBadgeClass, getCategoryBadgeClass, getStatusBadgeClass, extractTags } from '../utils/helpers';
 import TaskDetailsModal from './TaskDetailsModal';
+import AiSuggestionModal from './AiSuggestionModal';
 
 const TaskCard = ({ task, onToggleComplete, onEdit, onDelete, onAiBreakdown, onTaskUpdated }) => {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isSuggestOpen, setIsSuggestOpen] = useState(false);
+  const [suggestMode, setSuggestMode] = useState('both');
 
   const isDone = task.status === 'completed';
   const overdue = isOverdue(task.dueDate, task.status, task.dueTime);
@@ -15,6 +18,11 @@ const TaskCard = ({ task, onToggleComplete, onEdit, onDelete, onAiBreakdown, onT
   const progressPercent = subtasksTotal > 0 ? Math.round((subtasksCompleted / subtasksTotal) * 100) : (isDone ? 100 : 0);
 
   const tags = extractTags(task);
+
+  const handleOpenSuggest = (mode) => {
+    setSuggestMode(mode);
+    setIsSuggestOpen(true);
+  };
 
   return (
     <>
@@ -59,6 +67,20 @@ const TaskCard = ({ task, onToggleComplete, onEdit, onDelete, onAiBreakdown, onT
                 title="View Full Task Details"
               >
                 <Eye className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleOpenSuggest('priority'); }}
+                className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-500/20 transition-colors"
+                title="✨ AI Suggest Priority"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleOpenSuggest('deadline'); }}
+                className="p-1.5 rounded-lg text-indigo-400 hover:bg-indigo-500/20 transition-colors"
+                title="✨ AI Suggest Deadline"
+              >
+                <Calendar className="w-3.5 h-3.5" />
               </button>
               {onAiBreakdown && (
                 <button
@@ -153,10 +175,22 @@ const TaskCard = ({ task, onToggleComplete, onEdit, onDelete, onAiBreakdown, onT
 
         {/* Footer: Due Date & Time Info */}
         <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-slate-800/80 text-[11px] font-semibold">
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border capitalize ${getPriorityBadgeClass(task.priority)}`}>
               ⚡ {task.priority}
             </span>
+
+            {task.repeatFrequency && task.repeatFrequency !== 'none' && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 capitalize">
+                🔁 {task.repeatFrequency}
+              </span>
+            )}
+
+            {task.reminder && task.reminder !== 'none' && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/10 text-purple-300 border border-purple-500/30">
+                🔔 {task.reminder}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2 text-slate-400">
@@ -198,6 +232,17 @@ const TaskCard = ({ task, onToggleComplete, onEdit, onDelete, onAiBreakdown, onT
         onAiBreakdown={onAiBreakdown}
         onTaskUpdated={onTaskUpdated}
       />
+
+      {/* AI Suggestion Confirmation Modal */}
+      {isSuggestOpen && (
+        <AiSuggestionModal
+          task={task}
+          isOpen={isSuggestOpen}
+          onClose={() => setIsSuggestOpen(false)}
+          onTaskUpdated={onTaskUpdated}
+          initialMode={suggestMode}
+        />
+      )}
     </>
   );
 };

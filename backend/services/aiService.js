@@ -242,6 +242,72 @@ const generateTaskBreakdown = async (goalTitle) => {
   return subtasks;
 };
 
+const suggestTaskPriorityAndDeadline = async (title, description = '', category = 'personal') => {
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+
+  const aiResult = await callOpenAI([
+    {
+      role: 'system',
+      content: `Analyze a task title/description and suggest an optimal priority level, recommended deadline duration in days, calculated due date, and estimated effort in hours.
+Return ONLY a JSON object with keys:
+"priority": (one of: "urgent", "high", "medium", "low"),
+"suggestedDeadlineDays": number (e.g. 1, 2, 3, 5, 7),
+"suggestedDueDate": "YYYY-MM-DD" (calculated from today: ${todayStr}),
+"estimatedEffortHours": number (e.g. 2, 4, 8),
+"reasoning": string (short 1-sentence explanation of why this priority and deadline duration were recommended).`
+    },
+    { role: 'user', content: `Task: "${title}". Description: "${description}". Category: "${category}".` }
+  ], { type: 'json_object' });
+
+  if (aiResult) {
+    try {
+      const parsed = JSON.parse(aiResult);
+      if (parsed.priority && parsed.suggestedDueDate) {
+        return {
+          priority: parsed.priority,
+          suggestedDeadlineDays: parsed.suggestedDeadlineDays || 3,
+          suggestedDueDate: parsed.suggestedDueDate,
+          estimatedEffortHours: parsed.estimatedEffortHours || 4,
+          reasoning: parsed.reasoning || `Recommended ${parsed.priority.toUpperCase()} priority and ${parsed.suggestedDeadlineDays || 3} days deadline based on task complexity.`
+        };
+      }
+    } catch (e) {}
+  }
+
+  // Heuristic Fallback
+  let priority = 'medium';
+  let days = 3;
+  let hours = 4;
+  const lower = title.toLowerCase();
+
+  if (lower.includes('portfolio') || lower.includes('website') || lower.includes('mern') || lower.includes('project')) {
+    priority = 'high';
+    days = 3;
+    hours = 4;
+  } else if (lower.includes('urgent') || lower.includes('exam') || lower.includes('tax') || lower.includes('asap')) {
+    priority = 'urgent';
+    days = 1;
+    hours = 2;
+  } else if (lower.includes('gym') || lower.includes('read') || lower.includes('clean')) {
+    priority = 'low';
+    days = 5;
+    hours = 1;
+  }
+
+  const targetDate = new Date(today);
+  targetDate.setDate(today.getDate() + days);
+  const suggestedDueDate = targetDate.toISOString().split('T')[0];
+
+  return {
+    priority,
+    suggestedDeadlineDays: days,
+    suggestedDueDate,
+    estimatedEffortHours: hours,
+    reasoning: `Recommended ${priority.toUpperCase()} priority, ${days} days deadline (${suggestedDueDate}), and ${hours} hours estimated effort for "${title}".`
+  };
+};
+
 const prioritizeUserTasks = async (userTasks) => {
   const pendingTasks = userTasks.filter(t => t.status !== 'completed');
   if (pendingTasks.length === 0) {
@@ -384,6 +450,7 @@ Guidelines:
 module.exports = {
   parseTaskNaturalLanguage,
   generateTaskBreakdown,
+  suggestTaskPriorityAndDeadline,
   prioritizeUserTasks,
   processAIChat
 };

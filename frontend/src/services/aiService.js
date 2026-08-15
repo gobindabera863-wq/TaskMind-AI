@@ -10,6 +10,11 @@ export const getTaskBreakdown = async (title) => {
   return response.data;
 };
 
+export const suggestTaskPriorityAndDeadline = async (taskData) => {
+  const response = await api.post('/ai/suggest', taskData);
+  return response.data;
+};
+
 export const getTaskPrioritization = async () => {
   const response = await api.post('/ai/prioritize');
   return response.data;

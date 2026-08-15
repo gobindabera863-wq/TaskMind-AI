@@ -117,9 +117,50 @@ const getTaskById = async (req, res) => {
 
 // @desc    Create new task
 // @route   POST /api/tasks
+// Recurrence Date Calculation Helper
+const calculateNextDueDate = (currentDueDate, repeatFrequency, repeatDays = []) => {
+  const date = currentDueDate ? new Date(currentDueDate) : new Date();
+  if (isNaN(date.getTime())) return new Date();
+
+  const nextDate = new Date(date);
+
+  if (repeatFrequency === 'daily') {
+    nextDate.setDate(nextDate.getDate() + 1);
+  } else if (repeatFrequency === 'weekly') {
+    nextDate.setDate(nextDate.getDate() + 7);
+  } else if (repeatFrequency === 'monthly') {
+    nextDate.setMonth(nextDate.getMonth() + 1);
+  } else if (repeatFrequency === 'custom' && repeatDays && repeatDays.length > 0) {
+    const dayMap = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
+    const targetDayNums = repeatDays.map(d => dayMap[String(d).toLowerCase()]).filter(d => d !== undefined);
+
+    if (targetDayNums.length > 0) {
+      let found = false;
+      for (let i = 1; i <= 7; i++) {
+        const check = new Date(date);
+        check.setDate(date.getDate() + i);
+        if (targetDayNums.includes(check.getDay())) {
+          nextDate.setTime(check.getTime());
+          found = true;
+          break;
+        }
+      }
+      if (!found) nextDate.setDate(nextDate.getDate() + 7);
+    } else {
+      nextDate.setDate(nextDate.getDate() + 7);
+    }
+  } else {
+    nextDate.setDate(nextDate.getDate() + 7);
+  }
+
+  return nextDate;
+};
+
+// @desc    Create new task
+// @route   POST /api/tasks
 // @access  Private
 const createTask = async (req, res) => {
-  const { title, description, category, priority, status, tags, dueDate, dueTime, subtasks, estimatedTime } = req.body;
+  const { title, description, category, priority, status, tags, dueDate, dueTime, subtasks, estimatedTime, isRecurring, repeatFrequency, repeatDays, reminder, reminderCustomMinutes } = req.body;
 
   if (!title) {
     return res.status(400).json({ message: 'Please add a task title' });
@@ -142,6 +183,12 @@ const createTask = async (req, res) => {
       subtasks: subtasks || [],
       estimatedTime: estimatedTime || 25,
       timeSpent: 0,
+      isRecurring: isRecurring || false,
+      repeatFrequency: repeatFrequency || 'none',
+      repeatDays: repeatDays || [],
+      reminder: reminder || 'none',
+      reminderCustomMinutes: reminderCustomMinutes || 0,
+      reminderNotified: false,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -160,7 +207,13 @@ const createTask = async (req, res) => {
     dueDate: dueDate || null,
     dueTime: dueTime || '',
     subtasks: subtasks || [],
-    estimatedTime: estimatedTime || 25
+    estimatedTime: estimatedTime || 25,
+    isRecurring: isRecurring || false,
+    repeatFrequency: repeatFrequency || 'none',
+    repeatDays: repeatDays || [],
+    reminder: reminder || 'none',
+    reminderCustomMinutes: reminderCustomMinutes || 0,
+    reminderNotified: false
   });
 
   res.status(201).json(task);
@@ -213,9 +266,40 @@ const toggleTaskComplete = async (req, res) => {
     const task = memoryTasks.find(t => t._id === req.params.id && t.user.toString() === userId);
     if (!task) return res.status(404).json({ message: 'Task not found' });
 
-    task.status = task.status === 'completed' ? 'pending' : 'completed';
-    task.completedAt = task.status === 'completed' ? new Date() : null;
+    const isCompleting = task.status !== 'completed';
+    task.status = isCompleting ? 'completed' : 'pending';
+    task.completedAt = isCompleting ? new Date() : null;
     task.updatedAt = new Date();
+
+    // Automatic Recurring Task Spawning
+    if (isCompleting && (task.isRecurring || (task.repeatFrequency && task.repeatFrequency !== 'none'))) {
+      const nextDueDate = calculateNextDueDate(task.dueDate, task.repeatFrequency, task.repeatDays);
+      const nextTask = {
+        _id: 'task_' + Date.now(),
+        user: userId,
+        title: task.title,
+        description: task.description,
+        category: task.category,
+        priority: task.priority,
+        status: 'pending',
+        tags: task.tags || [],
+        dueDate: nextDueDate,
+        dueTime: task.dueTime,
+        subtasks: (task.subtasks || []).map(s => ({ ...s, completed: false })),
+        estimatedTime: task.estimatedTime,
+        timeSpent: 0,
+        isRecurring: task.isRecurring,
+        repeatFrequency: task.repeatFrequency,
+        repeatDays: task.repeatDays,
+        reminder: task.reminder,
+        reminderCustomMinutes: task.reminderCustomMinutes,
+        reminderNotified: false,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      memoryTasks.unshift(nextTask);
+    }
+
     return res.json(task);
   }
 
@@ -225,9 +309,34 @@ const toggleTaskComplete = async (req, res) => {
     return res.status(403).json({ message: 'Not authorized' });
   }
 
-  task.status = task.status === 'completed' ? 'pending' : 'completed';
-  task.completedAt = task.status === 'completed' ? new Date() : null;
+  const isCompleting = task.status !== 'completed';
+  task.status = isCompleting ? 'completed' : 'pending';
+  task.completedAt = isCompleting ? new Date() : null;
   await task.save();
+
+  // Automatic Recurring Task Spawning in DB
+  if (isCompleting && (task.isRecurring || (task.repeatFrequency && task.repeatFrequency !== 'none'))) {
+    const nextDueDate = calculateNextDueDate(task.dueDate, task.repeatFrequency, task.repeatDays);
+    await Task.create({
+      user: req.user._id,
+      title: task.title,
+      description: task.description,
+      category: task.category,
+      priority: task.priority,
+      status: 'pending',
+      tags: task.tags || [],
+      dueDate: nextDueDate,
+      dueTime: task.dueTime,
+      subtasks: (task.subtasks || []).map(s => ({ ...s, completed: false })),
+      estimatedTime: task.estimatedTime,
+      isRecurring: task.isRecurring,
+      repeatFrequency: task.repeatFrequency,
+      repeatDays: task.repeatDays,
+      reminder: task.reminder,
+      reminderCustomMinutes: task.reminderCustomMinutes,
+      reminderNotified: false
+    });
+  }
 
   res.json(task);
 };
@@ -255,6 +364,8 @@ const deleteTask = async (req, res) => {
   await task.deleteOne();
   res.json({ message: 'Task removed successfully' });
 };
+
+const { calculateProductivityScore } = require('../services/productivityService');
 
 // @desc    Get dashboard statistics
 // @route   GET /api/tasks/stats
@@ -291,40 +402,8 @@ const getTaskStats = async (req, res) => {
   // Dynamic Completion Rate %
   const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-  // Dynamic Productivity Score (0 - 100)
-  let productivityScore = 0;
-  if (total > 0) {
-    const rateScore = completionRate * 0.7; // max 70 pts
-    const overduePenalty = Math.min(20, overdue * 5); // max -20 pts penalty
-    const streakBonus = Math.min(15, completed * 3); // max 15 pts bonus
-    const noOverdueBonus = overdue === 0 ? 15 : 0; // 15 pts bonus
-    productivityScore = Math.min(100, Math.max(0, Math.round(rateScore - overduePenalty + streakBonus + noOverdueBonus)));
-  }
-
-  // Dynamic Active Completion Streak (consecutive days with completed tasks)
-  const completedDates = new Set(
-    userTasks
-      .filter(t => t.status === 'completed' && (t.completedAt || t.updatedAt || t.createdAt))
-      .map(t => new Date(t.completedAt || t.updatedAt || t.createdAt).toISOString().split('T')[0])
-  );
-
-  let currentStreak = 0;
-  if (completedDates.size > 0) {
-    let checkDate = new Date();
-    let checkStr = checkDate.toISOString().split('T')[0];
-
-    // If no task completed today yet, check if streak started yesterday
-    if (!completedDates.has(checkStr)) {
-      checkDate.setDate(checkDate.getDate() - 1);
-      checkStr = checkDate.toISOString().split('T')[0];
-    }
-
-    while (completedDates.has(checkStr)) {
-      currentStreak++;
-      checkDate.setDate(checkDate.getDate() - 1);
-      checkStr = checkDate.toISOString().split('T')[0];
-    }
-  }
+  // Deterministic Productivity Score Service
+  const productivityData = calculateProductivityScore(userTasks);
 
   res.json({
     total,
@@ -334,8 +413,11 @@ const getTaskStats = async (req, res) => {
     overdue,
     highPriority,
     completionRate,
-    productivityScore,
-    currentStreak
+    productivityScore: productivityData.score,
+    productivityLabel: productivityData.label,
+    productivityBadgeColor: productivityData.badgeColor,
+    currentStreak: productivityData.currentStreak,
+    breakdown: productivityData.breakdown
   });
 };
 

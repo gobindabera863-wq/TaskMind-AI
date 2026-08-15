@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, CheckSquare, User, Calendar } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, User, Calendar, BarChart2 } from 'lucide-react';
 
 const Sidebar = ({ currentCategory, onSelectCategory, tasks = [] }) => {
   const navigate = useNavigate();
@@ -78,6 +78,20 @@ const Sidebar = ({ currentCategory, onSelectCategory, tasks = [] }) => {
         >
           <Calendar className="w-4 h-4" />
           <span>Calendar View</span>
+        </NavLink>
+
+        <NavLink
+          to="/analytics"
+          className={({ isActive }) =>
+            `flex items-center gap-3 px-3 py-2.5 rounded-xl font-semibold text-sm transition-all ${
+              isActive
+                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/25'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+            }`
+          }
+        >
+          <BarChart2 className="w-4 h-4" />
+          <span>Analytics</span>
         </NavLink>
 
         <NavLink

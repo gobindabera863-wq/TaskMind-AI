@@ -1,4 +1,4 @@
-const { parseTaskNaturalLanguage, generateTaskBreakdown, prioritizeUserTasks, processAIChat } = require('../services/aiService');
+const { parseTaskNaturalLanguage, generateTaskBreakdown, suggestTaskPriorityAndDeadline, prioritizeUserTasks, processAIChat } = require('../services/aiService');
 const Task = require('../models/Task');
 const { getIsInMemoryFallback } = require('../config/db');
 const { memoryTasks } = require('./taskController');
@@ -23,6 +23,17 @@ const taskBreakdown = async (req, res) => {
 
   const subtasks = await generateTaskBreakdown(title);
   res.json({ title, subtasks });
+};
+
+// @desc    Suggest Priority and Deadline for task
+// @route   POST /api/ai/suggest
+// @access  Private
+const suggestTask = async (req, res) => {
+  const { title, description, category } = req.body;
+  if (!title) return res.status(400).json({ message: 'Task title is required' });
+
+  const suggestion = await suggestTaskPriorityAndDeadline(title, description, category);
+  res.json(suggestion);
 };
 
 // @desc    Prioritize user tasks using AI
@@ -65,6 +76,7 @@ const aiChat = async (req, res) => {
 module.exports = {
   parseTaskNLP,
   taskBreakdown,
+  suggestTask,
   prioritizeTasks,
   aiChat
 };

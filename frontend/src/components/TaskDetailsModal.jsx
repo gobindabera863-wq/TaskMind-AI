@@ -3,11 +3,15 @@ import { X, Check, Calendar, Clock, Tag, AlertCircle, Sparkles, Edit3, Trash2, C
 import { formatDate, isOverdue, getPriorityBadgeClass, getCategoryBadgeClass, getStatusBadgeClass, extractTags } from '../utils/helpers';
 import * as taskService from '../services/taskService';
 
+import AiSuggestionModal from './AiSuggestionModal';
+
 const TaskDetailsModal = ({ task, isOpen, onClose, onToggleComplete, onEdit, onDelete, onAiBreakdown, onTaskUpdated }) => {
   const [subtasks, setSubtasks] = useState([]);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [editingSubtaskId, setEditingSubtaskId] = useState(null);
   const [editingSubtaskTitle, setEditingSubtaskTitle] = useState('');
+  const [isSuggestModalOpen, setIsSuggestModalOpen] = useState(false);
+  const [suggestMode, setSuggestMode] = useState('both');
 
   useEffect(() => {
     if (task) {
@@ -24,6 +28,11 @@ const TaskDetailsModal = ({ task, isOpen, onClose, onToggleComplete, onEdit, onD
   const subtasksTotal = subtasks ? subtasks.length : 0;
   const subtasksCompleted = subtasks ? subtasks.filter(s => s.completed).length : 0;
   const progressPercent = subtasksTotal > 0 ? Math.round((subtasksCompleted / subtasksTotal) * 100) : (task.status === 'completed' ? 100 : 0);
+
+  const handleOpenSuggest = (mode) => {
+    setSuggestMode(mode);
+    setIsSuggestModalOpen(true);
+  };
 
   const handleToggleSubtask = async (subId) => {
     const updatedSubtasks = subtasks.map(s => s.id === subId ? { ...s, completed: !s.completed } : s);
@@ -280,8 +289,8 @@ const TaskDetailsModal = ({ task, isOpen, onClose, onToggleComplete, onEdit, onD
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-800 bg-slate-900/90">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-800 bg-slate-900/90 flex-wrap gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => { onClose(); onToggleComplete(task._id); }}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold shadow transition-all ${
@@ -292,6 +301,24 @@ const TaskDetailsModal = ({ task, isOpen, onClose, onToggleComplete, onEdit, onD
             >
               <Check className="w-4 h-4" />
               <span>{task.status === 'completed' ? 'Mark Pending' : 'Mark Complete'}</span>
+            </button>
+
+            <button
+              onClick={() => handleOpenSuggest('priority')}
+              className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 rounded-xl text-xs font-bold transition-all"
+              title="✨ Suggest Priority"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Suggest Priority</span>
+            </button>
+
+            <button
+              onClick={() => handleOpenSuggest('deadline')}
+              className="flex items-center gap-1.5 px-3 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 rounded-xl text-xs font-bold transition-all"
+              title="✨ Suggest Deadline"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Suggest Deadline</span>
             </button>
 
             {onAiBreakdown && (
@@ -305,7 +332,7 @@ const TaskDetailsModal = ({ task, isOpen, onClose, onToggleComplete, onEdit, onD
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 ml-auto">
             <button
               onClick={() => { onClose(); onEdit(task); }}
               className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl transition-colors"
@@ -323,6 +350,19 @@ const TaskDetailsModal = ({ task, isOpen, onClose, onToggleComplete, onEdit, onD
           </div>
         </div>
       </div>
+
+      {/* AI Suggestion Confirmation Modal */}
+      {isSuggestModalOpen && (
+        <AiSuggestionModal
+          task={task}
+          isOpen={isSuggestModalOpen}
+          onClose={() => setIsSuggestModalOpen(false)}
+          onTaskUpdated={() => {
+            if (onTaskUpdated) onTaskUpdated();
+          }}
+          initialMode={suggestMode}
+        />
+      )}
     </div>
   );
 };

@@ -57,6 +57,31 @@ const taskSchema = new mongoose.Schema(
       type: Number,
       default: 0
     },
+    isRecurring: {
+      type: Boolean,
+      default: false
+    },
+    repeatFrequency: {
+      type: String,
+      enum: ['none', 'daily', 'weekly', 'monthly', 'custom'],
+      default: 'none'
+    },
+    repeatDays: [
+      { type: String }
+    ],
+    reminder: {
+      type: String,
+      enum: ['none', '15-min', '30-min', '1-hour', '1-day', 'custom'],
+      default: 'none'
+    },
+    reminderCustomMinutes: {
+      type: Number,
+      default: 0
+    },
+    reminderNotified: {
+      type: Boolean,
+      default: false
+    },
     completedAt: {
       type: Date,
       default: null

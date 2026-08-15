@@ -11,6 +11,7 @@ import AIChat from '../components/AIChat';
 import { useAuth } from '../hooks/useAuth';
 import * as taskService from '../services/taskService';
 import AiBreakdownModal from '../components/AiBreakdownModal';
+import { getProductivityLabel } from '../utils/helpers';
 
 const Dashboard = () => {
   const { user } = useAuth();
