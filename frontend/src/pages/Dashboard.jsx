@@ -13,6 +13,7 @@ import * as taskService from '../services/taskService';
 import AiBreakdownModal from '../components/AiBreakdownModal';
 import { getProductivityLabel } from '../utils/helpers';
 import AiWeeklySummaryCard from '../components/AiWeeklySummaryCard';
+import Toast from '../components/Toast';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -62,30 +63,43 @@ const Dashboard = () => {
     loadDashboardData();
   }, []);
 
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+  };
+
   const handleAddTask = async (taskData) => {
     try {
       await taskService.createTask(taskData);
+      showToast('✨ Task created successfully!');
       loadDashboardData();
     } catch (err) {
       console.error('Error adding task', err);
+      showToast('Failed to create task.', 'error');
     }
   };
 
   const handleToggleComplete = async (taskId) => {
     try {
-      await taskService.toggleComplete(taskId);
+      const updated = await taskService.toggleComplete(taskId);
+      const isDone = updated.status === 'completed';
+      showToast(isDone ? '🎉 Task marked complete!' : 'Task moved back to pending.');
       loadDashboardData();
     } catch (err) {
       console.error('Error toggling complete', err);
+      showToast('Failed to update task status.', 'error');
     }
   };
 
   const handleDeleteTask = async (taskId) => {
     try {
       await taskService.deleteTask(taskId);
+      showToast('Task removed.', 'info');
       loadDashboardData();
     } catch (err) {
       console.error('Error deleting task', err);
+      showToast('Failed to delete task.', 'error');
     }
   };
 
@@ -98,9 +112,11 @@ const Dashboard = () => {
     try {
       await taskService.updateTask(taskId, updatedData);
       setIsEditModalOpen(false);
+      showToast('Task details updated!');
       loadDashboardData();
     } catch (err) {
       console.error('Error updating task', err);
+      showToast('Failed to update task.', 'error');
     }
   };
 
@@ -320,6 +336,14 @@ const Dashboard = () => {
           onTaskUpdated={loadDashboardData}
         />
       )}
+
+      {/* Floating Toast Feedback Notification */}
+      <Toast
+        isOpen={toast.show}
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ show: false, message: '', type: 'success' })}
+      />
     </div>
   );
 };
