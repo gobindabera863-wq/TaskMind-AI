@@ -21,4 +21,17 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Response interceptor to handle 401 Unauthorized session expirations
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem('taskmind_token');
+      localStorage.removeItem('taskmind_user');
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;
+

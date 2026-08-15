@@ -119,7 +119,7 @@ const getTaskById = async (req, res) => {
 // @route   POST /api/tasks
 // @access  Private
 const createTask = async (req, res) => {
-  const { title, description, category, priority, status, dueDate, dueTime, subtasks, estimatedTime } = req.body;
+  const { title, description, category, priority, status, tags, dueDate, dueTime, subtasks, estimatedTime } = req.body;
 
   if (!title) {
     return res.status(400).json({ message: 'Please add a task title' });
@@ -136,6 +136,7 @@ const createTask = async (req, res) => {
       category: category || 'personal',
       priority: priority || 'medium',
       status: status || 'pending',
+      tags: tags || [],
       dueDate: dueDate || null,
       dueTime: dueTime || '',
       subtasks: subtasks || [],
@@ -155,6 +156,7 @@ const createTask = async (req, res) => {
     category: category || 'personal',
     priority: priority || 'medium',
     status: status || 'pending',
+    tags: tags || [],
     dueDate: dueDate || null,
     dueTime: dueTime || '',
     subtasks: subtasks || [],
@@ -273,10 +275,56 @@ const getTaskStats = async (req, res) => {
   const inProgress = userTasks.filter(t => t.status === 'in-progress').length;
 
   const todayStr = new Date().toISOString().split('T')[0];
-  const overdue = userTasks.filter(t => t.dueDate && t.dueDate.toISOString().split('T')[0] < todayStr && t.status !== 'completed').length;
+  const overdue = userTasks.filter(t => {
+    if (!t.dueDate || t.status === 'completed') return false;
+    try {
+      const d = new Date(t.dueDate);
+      if (isNaN(d.getTime())) return false;
+      return d.toISOString().split('T')[0] < todayStr;
+    } catch (e) {
+      return false;
+    }
+  }).length;
+
   const highPriority = userTasks.filter(t => (t.priority === 'high' || t.priority === 'urgent') && t.status !== 'completed').length;
 
+  // Dynamic Completion Rate %
   const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  // Dynamic Productivity Score (0 - 100)
+  let productivityScore = 0;
+  if (total > 0) {
+    const rateScore = completionRate * 0.7; // max 70 pts
+    const overduePenalty = Math.min(20, overdue * 5); // max -20 pts penalty
+    const streakBonus = Math.min(15, completed * 3); // max 15 pts bonus
+    const noOverdueBonus = overdue === 0 ? 15 : 0; // 15 pts bonus
+    productivityScore = Math.min(100, Math.max(0, Math.round(rateScore - overduePenalty + streakBonus + noOverdueBonus)));
+  }
+
+  // Dynamic Active Completion Streak (consecutive days with completed tasks)
+  const completedDates = new Set(
+    userTasks
+      .filter(t => t.status === 'completed' && (t.completedAt || t.updatedAt || t.createdAt))
+      .map(t => new Date(t.completedAt || t.updatedAt || t.createdAt).toISOString().split('T')[0])
+  );
+
+  let currentStreak = 0;
+  if (completedDates.size > 0) {
+    let checkDate = new Date();
+    let checkStr = checkDate.toISOString().split('T')[0];
+
+    // If no task completed today yet, check if streak started yesterday
+    if (!completedDates.has(checkStr)) {
+      checkDate.setDate(checkDate.getDate() - 1);
+      checkStr = checkDate.toISOString().split('T')[0];
+    }
+
+    while (completedDates.has(checkStr)) {
+      currentStreak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+      checkStr = checkDate.toISOString().split('T')[0];
+    }
+  }
 
   res.json({
     total,
@@ -285,7 +333,9 @@ const getTaskStats = async (req, res) => {
     inProgress,
     overdue,
     highPriority,
-    completionRate
+    completionRate,
+    productivityScore,
+    currentStreak
   });
 };
 

@@ -1,8 +1,10 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, CheckSquare, User } from 'lucide-react';
 
 const Sidebar = ({ currentCategory, onSelectCategory, tasks = [] }) => {
+  const navigate = useNavigate();
+
   const categories = [
     { id: 'all', label: 'All Tasks', color: 'bg-white' },
     { id: 'work', label: 'Work', color: 'bg-indigo-500' },
@@ -20,8 +22,16 @@ const Sidebar = ({ currentCategory, onSelectCategory, tasks = [] }) => {
     ).length;
   };
 
+  const handleCategoryClick = (catId) => {
+    if (onSelectCategory) {
+      onSelectCategory(catId);
+    } else {
+      navigate('/dashboard');
+    }
+  };
+
   return (
-    <aside className="w-64 bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-2xl p-5 flex flex-col gap-6 shadow-xl h-fit">
+    <aside className="w-full md:w-64 bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-2xl p-5 flex flex-col gap-6 shadow-xl h-fit">
       {/* Navigation Links */}
       <div className="flex flex-col gap-2">
         <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 px-3">
@@ -85,7 +95,7 @@ const Sidebar = ({ currentCategory, onSelectCategory, tasks = [] }) => {
             <button
               key={cat.id}
               type="button"
-              onClick={() => onSelectCategory && onSelectCategory(cat.id)}
+              onClick={() => handleCategoryClick(cat.id)}
               className={`flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition-all ${
                 isSelected
                   ? 'bg-indigo-600/20 text-indigo-300 font-semibold border border-indigo-500/30 shadow-sm'
@@ -114,4 +124,5 @@ const Sidebar = ({ currentCategory, onSelectCategory, tasks = [] }) => {
 };
 
 export default Sidebar;
+
 

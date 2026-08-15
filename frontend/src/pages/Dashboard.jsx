@@ -21,12 +21,15 @@ const Dashboard = () => {
     inProgress: 0,
     overdue: 0,
     highPriority: 0,
-    completionRate: 0
+    completionRate: 0,
+    productivityScore: 0,
+    currentStreak: 0
   });
 
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterPriority, setFilterPriority] = useState('all');
   const [currentCategory, setCurrentCategory] = useState('all');
   const [sortOption, setSortOption] = useState('newest');
 
@@ -97,8 +100,9 @@ const Dashboard = () => {
     }
   };
 
-  // Filter & Sort Logic
+  // Comprehensive Filter & Sort Logic
   const filteredTasks = tasks.filter((t) => {
+    // 1. Status Filter
     if (filterStatus !== 'all') {
       if (filterStatus === 'overdue') {
         const todayStr = new Date().toISOString().split('T')[0];
@@ -109,10 +113,21 @@ const Dashboard = () => {
         if (t.status !== filterStatus) return false;
       }
     }
+
+    // 2. Priority Filter
+    if (filterPriority !== 'all') {
+      if (!t.priority || t.priority.toLowerCase().trim() !== filterPriority.toLowerCase().trim()) {
+        return false;
+      }
+    }
+
+    // 3. Category Filter
     if (currentCategory !== 'all') {
       if (!t.category) return false;
       if (t.category.toLowerCase().trim() !== currentCategory.toLowerCase().trim()) return false;
     }
+
+    // 4. Search Filter
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       const matchTitle = t.title.toLowerCase().includes(q);
@@ -120,8 +135,10 @@ const Dashboard = () => {
       const matchCat = t.category && t.category.toLowerCase().includes(q);
       if (!matchTitle && !matchDesc && !matchCat) return false;
     }
+
     return true;
   }).sort((a, b) => {
+    // 5. Sorting
     if (sortOption === 'newest') return new Date(b.createdAt) - new Date(a.createdAt);
     if (sortOption === 'oldest') return new Date(a.createdAt) - new Date(b.createdAt);
     if (sortOption === 'dueDate') {
@@ -131,40 +148,62 @@ const Dashboard = () => {
     }
     if (sortOption === 'priority') {
       const map = { urgent: 4, high: 3, medium: 2, low: 1 };
-      return map[b.priority] - map[a.priority];
+      return (map[b.priority] || 0) - (map[a.priority] || 0);
     }
     return 0;
   });
+
+  const handleAddSubtasksFromAi = async (subtasksList, mainTitle) => {
+    try {
+      for (const subTitle of subtasksList) {
+        await taskService.createTask({
+          title: subTitle,
+          category: 'work',
+          priority: 'medium',
+          description: `Subtask generated from AI goal: "${mainTitle}"`
+        });
+      }
+      loadDashboardData();
+    } catch (err) {
+      console.error('Error adding AI subtasks:', err);
+    }
+  };
+
+  const getProductivityLabel = (score) => {
+    if (score >= 85) return '🔥 Peak Productivity';
+    if (score >= 65) return '⚡ High Performance';
+    if (score >= 40) return '📈 Steady Progress';
+    return '🌱 Needs Attention';
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col font-sans">
       <Navbar onOpenAiChat={() => setIsAiChatOpen(true)} />
 
-      <div className="max-w-7xl w-full mx-auto px-6 py-6 flex-1 flex gap-6">
-        {/* Sidebar */}
+      <div className="max-w-7xl w-full mx-auto px-4 md:px-6 py-6 flex-1 flex flex-col md:flex-row gap-6">
+        {/* Sidebar Navigation */}
         <Sidebar
           currentCategory={currentCategory}
           onSelectCategory={(cat) => setCurrentCategory(cat)}
           tasks={tasks}
         />
 
-
         {/* Main Workspace */}
-        <main className="flex-1 flex flex-col gap-6">
+        <main className="flex-1 flex flex-col gap-6 min-w-0">
           {/* Welcome Banner */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
-              <h2 className="text-2xl font-extrabold tracking-tight">
+              <h2 className="text-xl md:text-2xl font-extrabold tracking-tight">
                 Welcome back, {user?.name || 'Developer'}! 👋
               </h2>
               <p className="text-xs text-slate-400 mt-1">
-                Here is your AI productivity overview for today.
+                Real-time task intelligence & AI productivity hub
               </p>
             </div>
           </div>
 
-          {/* Interactive Stats Bar */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* Dynamic 7-Metric Interactive Dashboard Statistics Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
             <StatsCard
               title="Total Tasks"
               value={stats.total}
@@ -198,17 +237,40 @@ const Dashboard = () => {
               onClick={() => setFilterStatus('overdue')}
               isActive={filterStatus === 'overdue'}
             />
+            <StatsCard
+              title="Completion Rate"
+              value={`${stats.completionRate}%`}
+              icon="📊"
+              subtext="Total completed percentage"
+              color="purple"
+            />
+            <StatsCard
+              title="Productivity Score"
+              value={`${stats.productivityScore || 0}/100`}
+              icon="⚡"
+              subtext={getProductivityLabel(stats.productivityScore || 0)}
+              color="cyan"
+            />
+            <StatsCard
+              title="Current Streak"
+              value={`${stats.currentStreak || 0} ${stats.currentStreak === 1 ? 'Day' : 'Days'}`}
+              icon="🔥"
+              subtext="Consecutive daily activity"
+              color="pink"
+            />
           </div>
 
-          {/* Smart Task Input Form */}
+          {/* Smart Natural Language Task Input */}
           <TaskForm onTaskAdded={handleAddTask} />
 
-          {/* Controls Bar */}
-          <div className="flex items-center justify-between gap-4 flex-wrap">
+          {/* Search, Filter & Control Tools */}
+          <div className="flex flex-col gap-3">
             <SearchBar searchQuery={searchQuery} onSearchChange={setSearchQuery} />
             <FilterBar
               currentFilter={filterStatus}
               onSelectFilter={setFilterStatus}
+              currentPriority={filterPriority}
+              onSelectPriority={setFilterPriority}
               currentSort={sortOption}
               onSelectSort={setSortOption}
             />
@@ -222,6 +284,7 @@ const Dashboard = () => {
             onEdit={handleOpenEdit}
             onDelete={handleDeleteTask}
             onAiBreakdown={() => setIsAiChatOpen(true)}
+            onTaskUpdated={loadDashboardData}
           />
         </main>
       </div>
@@ -235,9 +298,15 @@ const Dashboard = () => {
       />
 
       {/* AI Assistant Modal */}
-      <AIChat isOpen={isAiChatOpen} onClose={() => setIsAiChatOpen(false)} />
+      <AIChat
+        isOpen={isAiChatOpen}
+        onClose={() => setIsAiChatOpen(false)}
+        onAddSubtasks={handleAddSubtasksFromAi}
+      />
     </div>
   );
 };
 
 export default Dashboard;
+
+

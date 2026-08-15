@@ -1,36 +1,65 @@
 export const formatDate = (dateString) => {
   if (!dateString) return '';
   
-  const todayStr = new Date().toISOString().split('T')[0];
-  const dueStr = new Date(dateString).toISOString().split('T')[0];
+  try {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const dueStr = new Date(dateString).toISOString().split('T')[0];
 
-  const today = new Date(todayStr);
-  const due = new Date(dueStr);
-  
-  const diffTime = due.getTime() - today.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const today = new Date(todayStr);
+    const due = new Date(dueStr);
+    
+    const diffTime = due.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Tomorrow';
-  if (diffDays < 0) {
-    const formatted = due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    return `Overdue (${formatted})`;
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Tomorrow';
+    if (diffDays < 0) {
+      const formatted = due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return `Overdue (${formatted})`;
+    }
+
+    return due.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  } catch (e) {
+    return '';
   }
-
-  return due.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  });
 };
 
-export const isOverdue = (dateString, status) => {
+export const isOverdue = (dateString, status, dueTime) => {
   if (!dateString || status === 'completed') return false;
-  const todayStr = new Date().toISOString().split('T')[0];
-  const dueStr = new Date(dateString).toISOString().split('T')[0];
-  return dueStr < todayStr;
+  try {
+    const due = new Date(dateString);
+    if (isNaN(due.getTime())) return false;
+
+    if (dueTime && typeof dueTime === 'string') {
+      const [hours, minutes] = dueTime.split(':');
+      if (hours !== undefined && minutes !== undefined) {
+        due.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+      }
+    } else {
+      due.setHours(23, 59, 59, 999);
+    }
+    return new Date() > due;
+  } catch (e) {
+    return false;
+  }
 };
 
+export const getStatusBadgeClass = (status, overdue) => {
+  if (status === 'completed') {
+    return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+  }
+  if (overdue || status === 'overdue') {
+    return 'bg-red-500/20 text-red-400 border-red-500/30 border animate-pulse';
+  }
+  if (status === 'in-progress') {
+    return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+  }
+  return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
+};
 
 export const getPriorityBadgeClass = (priority) => {
   switch (priority) {
@@ -65,3 +94,25 @@ export const getCategoryBadgeClass = (category) => {
       return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
   }
 };
+
+export const extractTags = (task) => {
+  const tagsSet = new Set();
+
+  if (task.tags && Array.isArray(task.tags)) {
+    task.tags.forEach(t => tagsSet.add(t.startsWith('#') ? t : `#${t}`));
+  }
+
+  // Parse hashtags from title and description
+  const text = `${task.title || ''} ${task.description || ''}`;
+  const matches = text.match(/#[a-zA-Z0-9_]+/g);
+  if (matches) {
+    matches.forEach(m => tagsSet.add(m));
+  }
+
+  if (task.category) {
+    tagsSet.add(`#${task.category}`);
+  }
+
+  return Array.from(tagsSet);
+};
+

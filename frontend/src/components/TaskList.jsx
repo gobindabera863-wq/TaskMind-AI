@@ -3,7 +3,7 @@ import TaskCard from './TaskCard';
 import EmptyState from './EmptyState';
 import Loading from './Loading';
 
-const TaskList = ({ tasks, loading, onToggleComplete, onEdit, onDelete, onAiBreakdown }) => {
+const TaskList = ({ tasks, loading, onToggleComplete, onEdit, onDelete, onAiBreakdown, onTaskUpdated }) => {
   if (loading) {
     return <Loading />;
   }
@@ -22,6 +22,7 @@ const TaskList = ({ tasks, loading, onToggleComplete, onEdit, onDelete, onAiBrea
           onEdit={onEdit}
           onDelete={onDelete}
           onAiBreakdown={onAiBreakdown}
+          onTaskUpdated={onTaskUpdated}
         />
       ))}
     </div>
@@ -29,3 +30,4 @@ const TaskList = ({ tasks, loading, onToggleComplete, onEdit, onDelete, onAiBrea
 };
 
 export default TaskList;
+
